@@ -33,7 +33,6 @@ export class UI {
   notify(message, duration = 3200) {
     clearTimeout(this._notifyTimeout);
 
-    this._notifEl.style.whiteSpace = 'pre-line';
     this._notifEl.textContent = message;
     this._notifEl.style.opacity = '1';
 

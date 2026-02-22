@@ -426,6 +426,7 @@ export class World {
     resource.collected = true;
     this.scene.remove(resource.mesh);
     resource.mesh.geometry.dispose();
+    resource.mesh.material.dispose();
   }
 
   isNearColony(pos) {
