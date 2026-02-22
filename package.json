@@ -1,0 +1,9 @@
+{
+  "name": "antenboro",
+  "version": "0.1.0",
+  "description": "First-person ant colony survival game built with Three.js",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "private": true
+}
