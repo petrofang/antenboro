@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Antenboro — Ant Colony Survival</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #060e03; overflow: hidden; font-family: Georgia, serif; color: #e8d5a3; }
+
+    #canvas-container { position: fixed; inset: 0; }
+
+    /* ── Start Screen ── */
+    #start-screen {
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, #112208 0%, #030a02 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    #start-screen h1 {
+      font-size: clamp(2.5em, 8vw, 5em);
+      color: #b8e060;
+      text-shadow: 0 0 40px #4a9a1a, 0 0 80px #1a5a06;
+      letter-spacing: 0.18em; margin-bottom: 0.15em;
+    }
+    #start-screen .tagline {
+      font-size: 1.1em; color: #78a848; font-style: italic; margin-bottom: 0.6em;
+    }
+    #start-screen .flavour {
+      font-size: 0.82em; color: #5a8030; max-width: 400px;
+      text-align: center; line-height: 1.75; margin-bottom: 2em;
+    }
+    .menu-btn {
+      background: transparent; border: 1px solid #b8e060;
+      color: #b8e060; font-size: 1em; padding: 0.65em 2.2em;
+      cursor: pointer; letter-spacing: 0.12em; text-transform: uppercase;
+      transition: background 0.18s, box-shadow 0.18s; margin: 0.25em;
+      font-family: Georgia, serif;
+    }
+    .menu-btn:hover {
+      background: #b8e06018; box-shadow: 0 0 18px #b8e06044;
+    }
+
+    /* ── Pause Screen ── */
+    #pause-screen {
+      position: fixed; inset: 0; background: #00000090;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 90;
+    }
+    #pause-screen h2 { color: #b8e060; margin-bottom: 1.2em; letter-spacing: 0.15em; }
+
+    /* ── HUD ── */
+    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; display: none; }
+
+    /* Crosshair */
+    #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 18px; height: 18px; }
+    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #b8e06099; }
+    #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    #crosshair::after  { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+
+    /* Time */
+    #time-indicator {
+      position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 0.8em; color: #b8e06088; letter-spacing: 0.15em;
+    }
+
+    /* Colony panel */
+    #colony-panel {
+      position: absolute; top: 18px; right: 18px;
+      background: #0a1a0588; border: 1px solid #3a5a12;
+      border-radius: 8px; padding: 13px 16px; min-width: 190px;
+      backdrop-filter: blur(5px);
+    }
+    #colony-panel h3 { color: #b8e060; font-size: 0.82em; margin-bottom: 9px; letter-spacing: 0.1em; }
+    .colony-stat { display: flex; justify-content: space-between; font-size: 0.75em; margin: 3px 0; }
+    .colony-stat span:first-child { color: #78a848; }
+    .colony-stat span:last-child  { color: #e8d5a3; }
+
+    /* Stat bars */
+    #stats-panel { position: absolute; bottom: 28px; left: 28px; display: flex; flex-direction: column; gap: 7px; }
+    .stat-bar  { display: flex; align-items: center; gap: 9px; }
+    .stat-label { font-size: 0.68em; width: 55px; color: #b8e060; text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat-track { width: 140px; height: 7px; background: #ffffff1a; border-radius: 4px; }
+    .stat-fill  { height: 100%; border-radius: 4px; transition: width 0.35s; }
+    #health-fill { background: linear-gradient(90deg,#c83030,#ff7070); }
+    #food-fill   { background: linear-gradient(90deg,#c89030,#f0c850); }
+    #energy-fill { background: linear-gradient(90deg,#3070d0,#70b0ff); }
+
+    /* Inventory */
+    #inventory {
+      position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 4px;
+    }
+    .inv-slot {
+      width: 52px; height: 52px;
+      background: #0a1a0588; border: 1px solid #3a5a12;
+      border-radius: 5px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 0.6em; color: #78a848; text-align: center;
+    }
+    .inv-slot .inv-icon { font-size: 1.6em; line-height: 1; }
+    .inv-slot.active { border-color: #b8e060; background: #0a280888; }
+
+    /* Notification */
+    #notification {
+      position: absolute; top: 58%; left: 50%; transform: translate(-50%, -50%);
+      background: #0a1a0599; border: 1px solid #b8e06033;
+      border-radius: 8px; padding: 10px 18px; color: #b8e060;
+      font-size: 0.85em; text-align: center; pointer-events: none;
+      opacity: 0; transition: opacity 0.4s; max-width: 320px;
+    }
+
+    /* Instructions */
+    #instructions {
+      position: absolute; bottom: 104px; right: 18px;
+      font-size: 0.65em; color: #78a84866; text-align: right; line-height: 1.9;
+    }
+
+    /* Build menu */
+    #build-menu {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: #0a1a05ee; border: 1px solid #3a5a12;
+      border-radius: 12px; padding: 22px; display: none;
+      min-width: 340px; backdrop-filter: blur(9px);
+      pointer-events: all;
+    }
+    #build-menu h2 { color: #b8e060; margin-bottom: 14px; letter-spacing: 0.1em; font-size: 1em; }
+    .build-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+    .build-item {
+      background: #0a2a0888; border: 1px solid #3a5a12;
+      border-radius: 7px; padding: 11px 7px; cursor: pointer;
+      text-align: center; transition: border-color 0.15s, background 0.15s;
+    }
+    .build-item:hover { border-color: #b8e060; background: #0a380888; }
+    .build-item .b-icon { font-size: 1.8em; margin-bottom: 4px; }
+    .build-item .b-name { font-size: 0.7em; color: #b8e060; }
+    .build-item .b-cost { font-size: 0.6em; color: #78a848; margin-top: 3px; }
+
+    /* Damage flash */
+    #dmg-flash {
+      position: fixed; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 45%, #c8303088 100%);
+      z-index: 8; opacity: 0; transition: opacity 0.15s;
+    }
+
+    /* Interact prompt */
+    #interact-prompt {
+      position: absolute; top: 54%; left: 50%; transform: translate(-50%,-50%);
+      font-size: 0.75em; color: #b8e060aa; letter-spacing: 0.1em;
+      pointer-events: none; opacity: 0; transition: opacity 0.2s;
+    }
+  </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="dmg-flash"></div>
+
+<!-- ── Start Screen ── -->
+<div id="start-screen">
+  <h1>🐜 ANTENBORO</h1>
+  <p class="tagline">First-Person Ant Colony Survival</p>
+  <p class="flavour">
+    Lead your superorganism through a vast, ancient undergrowth.<br>
+    Build chambers. Gather resources. Survive the night.<br>
+    <em>The garden is yours — if you can take it.</em>
+  </p>
+  <button class="menu-btn" id="btn-start">Enter the Colony</button>
+  <button class="menu-btn" id="btn-controls">Controls</button>
+</div>
+
+<!-- ── Pause Screen ── -->
+<div id="pause-screen">
+  <h2>⏸ PAUSED</h2>
+  <button class="menu-btn" id="btn-resume">Resume</button>
+  <button class="menu-btn" id="btn-quit">Return to Menu</button>
+</div>
+
+<!-- ── HUD ── -->
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="time-indicator">🌿 MORNING</div>
+
+  <div id="colony-panel">
+    <h3>🐜 COLONY</h3>
+    <div class="colony-stat"><span>Workers</span><span id="c-workers">12</span></div>
+    <div class="colony-stat"><span>Soldiers</span><span id="c-soldiers">3</span></div>
+    <div class="colony-stat"><span>Larvae</span><span id="c-larvae">8</span></div>
+    <div class="colony-stat"><span>Food Stores</span><span id="c-food">450 mg</span></div>
+    <div class="colony-stat"><span>Chambers</span><span id="c-chambers">4</span></div>
+    <div class="colony-stat"><span>Morale</span><span id="c-morale">80%</span></div>
+  </div>
+
+  <div id="stats-panel">
+    <div class="stat-bar">
+      <span class="stat-label">Health</span>
+      <div class="stat-track"><div class="stat-fill" id="health-fill" style="width:100%"></div></div>
+    </div>
+    <div class="stat-bar">
+      <span class="stat-label">Food</span>
+      <div class="stat-track"><div class="stat-fill" id="food-fill" style="width:75%"></div></div>
+    </div>
+    <div class="stat-bar">
+      <span class="stat-label">Energy</span>
+      <div class="stat-track"><div class="stat-fill" id="energy-fill" style="width:90%"></div></div>
+    </div>
+  </div>
+
+  <div id="inventory">
+    <div class="inv-slot active" id="slot-0"><span class="inv-icon">🌾</span>Seeds<br><span id="inv-seed">0</span></div>
+    <div class="inv-slot" id="slot-1"><span class="inv-icon">🍞</span>Food<br><span id="inv-food">0</span></div>
+    <div class="inv-slot" id="slot-2"><span class="inv-icon">🌿</span>Fiber<br><span id="inv-fiber">0</span></div>
+    <div class="inv-slot" id="slot-3"><span class="inv-icon">🪨</span>Gravel<br><span id="inv-gravel">0</span></div>
+    <div class="inv-slot" id="slot-4"><span class="inv-icon">🔨</span>Build<br>[B]</div>
+  </div>
+
+  <div id="instructions">
+    WASD / Arrows — Move &nbsp; Mouse — Look<br>
+    Shift — Sprint &nbsp; F — Gather<br>
+    E — Interact &nbsp; B — Build Menu<br>
+    1–4 / Scroll — Select &nbsp; ESC — Pause
+  </div>
+
+  <div id="notification"></div>
+  <div id="interact-prompt"></div>
+
+  <!-- Build Menu (inside HUD so pointer-events work) -->
+  <div id="build-menu">
+    <h2>🏗 CONSTRUCT</h2>
+    <div class="build-grid">
+      <div class="build-item" data-build="tunnel">
+        <div class="b-icon">🕳️</div>
+        <div class="b-name">Tunnel</div>
+        <div class="b-cost">10 Gravel</div>
+      </div>
+      <div class="build-item" data-build="chamber">
+        <div class="b-icon">🏠</div>
+        <div class="b-name">Chamber</div>
+        <div class="b-cost">20 Gravel + 5 Fiber</div>
+      </div>
+      <div class="build-item" data-build="food-store">
+        <div class="b-icon">🫙</div>
+        <div class="b-name">Food Store</div>
+        <div class="b-cost">15 Gravel + 10 Fiber</div>
+      </div>
+      <div class="build-item" data-build="nursery">
+        <div class="b-icon">🥚</div>
+        <div class="b-name">Nursery</div>
+        <div class="b-cost">25 Gravel + 15 Fiber</div>
+      </div>
+      <div class="build-item" data-build="barricade">
+        <div class="b-icon">🧱</div>
+        <div class="b-name">Barricade</div>
+        <div class="b-cost">8 Gravel</div>
+      </div>
+      <div class="build-item" data-build="beacon">
+        <div class="b-icon">✨</div>
+        <div class="b-name">Pheromone Beacon</div>
+        <div class="b-cost">5 Seeds</div>
+      </div>
+    </div>
+    <button class="menu-btn" id="btn-close-build" style="margin-top:14px;width:100%">Close [B]</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
